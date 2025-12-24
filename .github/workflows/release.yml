@@ -36,14 +36,26 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_TOOLCHAIN_FILE="$PWD/vcpkg/scripts/buildsystems/vcpkg.cmake"
       
-      - name: Build (Windows x64)
+      - name: Build driver (Windows x64)
         run: cmake --build build --config Release --target driver_rayneo
       
-      - name: Upload Windows artifacts
+      - name: Build prelauncher (Windows x64)
+        run: cmake --build build --config Release --target rayneo_prelauncher
+      
+      - name: Upload Windows driver artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rayneo-win64
           path: build/drivers/rayneo/bin/win64/
+          retention-days: 1
+      
+      - name: Upload Windows prelauncher artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prelauncher-win64
+          path: |
+            build/Release/rayneo_prelauncher.exe
+            build/Release/*.dll
           retention-days: 1
 
   build-linux:
@@ -65,14 +77,26 @@ jobs:
           cmake -B build \
             -DCMAKE_BUILD_TYPE=Release
       
-      - name: Build (Linux x64)
+      - name: Build driver (Linux x64)
         run: cmake --build build --config Release --target driver_rayneo
       
-      - name: Upload Linux artifacts
+      - name: Build prelauncher (Linux x64)
+        run: cmake --build build --config Release --target rayneo_prelauncher
+      
+      - name: Upload Linux driver artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rayneo-linux64
           path: build/drivers/rayneo/bin/linux64/
+          retention-days: 1
+      
+      - name: Upload Linux prelauncher artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: prelauncher-linux64
+          path: |
+            build/rayneo_prelauncher
+            build/*.so
           retention-days: 1
 
   package-release:
@@ -90,18 +114,32 @@ jobs:
           mkdir -p package/rayneo/bin/win64
           mkdir -p package/rayneo/bin/linux64
           mkdir -p package/rayneo/resources
+          mkdir -p prelauncher/win64
+          mkdir -p prelauncher/linux64
       
-      - name: Download Windows build
+      - name: Download Windows driver
         uses: actions/download-artifact@v4
         with:
           name: rayneo-win64
           path: package/rayneo/bin/win64
       
-      - name: Download Linux build
+      - name: Download Linux driver
         uses: actions/download-artifact@v4
         with:
           name: rayneo-linux64
           path: package/rayneo/bin/linux64
+      
+      - name: Download Windows prelauncher
+        uses: actions/download-artifact@v4
+        with:
+          name: prelauncher-win64
+          path: prelauncher/win64
+      
+      - name: Download Linux prelauncher
+        uses: actions/download-artifact@v4
+        with:
+          name: prelauncher-linux64
+          path: prelauncher/linux64
       
       - name: Copy driver resources
         run: |
@@ -126,6 +164,13 @@ jobs:
           zip -r "../${{ steps.metadata.outputs.archive_name }}" rayneo/
           cd ..
           ls -lh "${{ steps.metadata.outputs.archive_name }}"
+      
+      - name: Create prelauncher ZIP
+        run: |
+          cd prelauncher
+          zip -r "../rayneo-air3s-pro-prelauncher_build-${{ steps.metadata.outputs.commit_hash }}-${{ steps.metadata.outputs.build_date }}.zip" win64/ linux64/
+          cd ..
+          ls -lh "rayneo-air3s-pro-prelauncher_build-${{ steps.metadata.outputs.commit_hash }}-${{ steps.metadata.outputs.build_date }}.zip"
       
       # - name: Create source tarball
       #   run: |
@@ -156,8 +201,14 @@ jobs:
             
             ### Files
             - **Driver package** (Win64 + Linux64): `rayneo-air3s-pro-openvr_build-*.zip`
+            - **Prelauncher tool** (Win64 + Linux64): `rayneo-air3s-pro-prelauncher_build-*.zip`
+            
+            ### Prelauncher
+            The prelauncher switches the device to 3D mode and starts SteamVR.
+            Run it before launching VR applications.
           files: |
             rayneo-air3s-pro-openvr_build-*.zip
+            rayneo-air3s-pro-prelauncher_build-*.zip
           draft: false
           prerelease: false
         env:
