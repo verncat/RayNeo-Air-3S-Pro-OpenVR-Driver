@@ -1,0 +1,62 @@
+{
+  "jsonid": "input_profile",
+  "controller_type": "rayneo_hmd",
+  
+  "input_bindingui_mode": "hmd",
+  "input_bindingui_left": {
+    "image": "{rayneo}/input/rayneo_hmd.png"
+  },
+  "input_bindingui_right": {
+    "image": "{rayneo}/input/rayneo_hmd.png"
+  },
+  "input_source": {
+    "/input/system": {
+      "type": "button",
+      "binding_image_point": [ 80, 60 ],
+      "click": true,
+      "touch": true,
+      "order": 1
+    },
+    "/input/application_menu": {
+      "type": "button",
+      "binding_image_point": [ 150, 60 ],
+      "click": true,
+      "order": 2
+    },
+    "/input/grip": {
+      "type": "button",
+      "binding_image_point": [ 220, 60 ],
+      "click": true,
+      "order": 3
+    },
+    "/input/trigger": {
+      "type": "button",
+      "binding_image_point": [ 290, 60 ],
+      "click": true,
+      "order": 4
+    },
+    "/output/haptic": {
+      "type": "haptic",
+      "binding_image_point": [ 360, 60 ],
+      "order": 5
+    },
+    "/pose/raw": {
+      "type": "pose",
+      "order": 0
+    }
+  },
+  "default_bindings": [
+    {
+      "app_key": "openvr.component.vrcompositor",
+      "binding_url": "rayneo_hmd_vrcompositor_bindings.json"
+    },
+    {
+      "app_key": "steam.overlay.1173510",
+      "binding_url": "rayneo_hmd_overlay_1173510.json"
+    },
+    {
+      "app_key": "steam.overlay.908520",
+      "binding_url": "rayneo_hmd_overlay_908520.json"
+    }
+  ]
+}

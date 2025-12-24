@@ -1,0 +1,61 @@
+{
+  "controller_type": "generic_hmd",
+  "bindings": {
+    "/actions/lasermouse": {
+      "poses": [
+        {
+          "output": "/actions/lasermouse/in/pointer",
+          "path": "/user/head/pose/raw"
+        }
+      ],
+      "sources": [
+        {
+          "path": "/user/head/input/trigger",
+          "mode": "button",
+          "inputs": {
+            "click": {
+              "output": "/actions/lasermouse/in/LeftClick"
+            }
+          }
+        },
+        {
+          "path": "/user/head/input/grip",
+          "mode": "button",
+          "inputs": {
+            "click": {
+              "output": "/actions/lasermouse/in/Back"
+            }
+          }
+        },
+        {
+          "path": "/user/head/input/application_menu",
+          "mode": "button",
+          "inputs": {
+            "click": {
+              "output": "/actions/lasermouse/in/Home"
+            }
+          }
+        }
+      ]
+    },
+    "/actions/system": {
+      "sources": [
+        {
+          "path": "/user/head/input/system",
+          "mode": "button",
+          "inputs": {
+            "held": {
+              "output": "/actions/system/in/SystemButtonChord"
+            },
+            "click": {
+              "output": "/actions/system/in/ToggleDashboard"
+            },
+            "double": {
+              "output": "/actions/system/in/ToggleRoomView"
+            }
+          }
+        }
+      ]
+    }
+  }
+}
