@@ -119,13 +119,13 @@ jobs:
           cd ..
           ls -lh "${{ steps.metadata.outputs.archive_name }}"
       
-      - name: Create source tarball
-        run: |
-          tar --exclude='.git' \
-              --exclude='build' \
-              --exclude='package' \
-              -czf "rayneo-air3s-pro-openvr_source-${{ steps.metadata.outputs.commit_hash }}-${{ steps.metadata.outputs.build_date }}.tar.gz" \
-              .
+      # - name: Create source tarball
+      #   run: |
+      #     tar --exclude='.git' \
+      #         --exclude='build' \
+      #         --exclude='package' \
+      #         -czf "rayneo-air3s-pro-openvr_source-${{ steps.metadata.outputs.commit_hash }}-${{ steps.metadata.outputs.build_date }}.tar.gz" \
+      #         .
       
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -148,10 +148,8 @@ jobs:
             
             ### Files
             - **Driver package** (Win64 + Linux64): `rayneo-air3s-pro-openvr_build-*.zip`
-            - **Source code**: `rayneo-air3s-pro-openvr_source-*.tar.gz`
           files: |
             rayneo-air3s-pro-openvr_build-*.zip
-            rayneo-air3s-pro-openvr_source-*.tar.gz
           draft: false
           prerelease: false
         env:
