@@ -1,6 +1,6 @@
 [submodule "thirdparties/rayneo-sdk"]
 	path = thirdparties/rayneo-sdk
-	url = github.com-vrnct:verncat/RayNeo-Air-3S-Pro-OpenVR.git
+	url = https://github.com/verncat/RayNeo-Air-3S-Pro-OpenVR.git
 [submodule "thirdparties/openvr"]
 	path = thirdparties/openvr
 	url = https://github.com/ValveSoftware/openvr.git
