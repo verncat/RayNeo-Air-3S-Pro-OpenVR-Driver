@@ -6,6 +6,7 @@
 #include "hmd_device_driver.h"
 #include "openvr_driver.h"
 #include "rayneo_api.h"
+#include "driverlog.h"
 #include <mutex>
 
 // Forward declaration for HMD driver to avoid circular include complexities
@@ -47,6 +48,16 @@ private:
 	float imu_q_z_ = 0.0f;
 	uint32_t last_imu_tick_ = 0; // last sample tick for dt computation (assumed ms units)
 
+	// EXPERIMENTAL 6DOF: Position tracking via accelerometer double integration
+	// WARNING: High drift, resets on recenter. Not suitable for production.
+	float velocity_x_ = 0.0f;
+	float velocity_y_ = 0.0f;
+	float velocity_z_ = 0.0f;
+	float position_x_ = 0.0f;
+	float position_y_ = 1.5f; // Start at standing height
+	float position_z_ = 0.0f;
+	bool use_experimental_6dof_ = false; // Enable/disable accelerometer position tracking
+
 	// Sensitivity scaling for gyro integration (runtime tunable via env var)
 	float gyro_scale_ = 0.2f; // default reduces sensitivity to ~20%
 
@@ -78,13 +89,28 @@ public:
 		z = iw*imu_q_z_ + ix*imu_q_y_ - iy*imu_q_x_ + iz*imu_q_w_;
 	}
 
+	// Get experimental 6DOF position (WARNING: high drift)
+	void GetPosition(double &x, double &y, double &z)
+	{
+		std::lock_guard<std::mutex> lock(imu_mutex_);
+		if (use_experimental_6dof_) {
+			x = static_cast<double>(position_x_);
+			y = static_cast<double>(position_y_);
+			z = static_cast<double>(position_z_);
+		} else {
+			x = 0.0;
+			y = 3;
+			z = 0.0;
+		}
+	}
+
 	bool IsSleeping() const { return sleeping_.load(); }
 	bool ConsumeButtonNotifyPending() { return button_system_click_pending_.exchange(false); }
 	bool ConsumeTriggerClickPending() { return button_trigger_click_pending_.exchange(false); }
 	bool ConsumeGripClickPending() { return button_grip_click_pending_.exchange(false); }
 	bool ConsumeAppMenuClickPending() { return button_appmenu_click_pending_.exchange(false); }
 
-	// Recenter: store current orientation as anchor
+	// Recenter: store current orientation as anchor and reset position
 	void Recenter()
 	{
 		std::lock_guard<std::mutex> lock(imu_mutex_);
@@ -92,6 +118,12 @@ public:
 		recenter_q_x_ = imu_q_x_;
 		recenter_q_y_ = imu_q_y_;
 		recenter_q_z_ = imu_q_z_;
+		// Reset horizontal position and velocity (Y stays at 1.5m standing height)
+		velocity_x_ = velocity_z_ = 0.0f;
+		position_x_ = 0.0f;
+		// position_y_ = 1.5f; // No need to reset - it's constant (never integrated)
+		position_z_ = 0.0f;
+		DriverLog("[provider] Recenter: orientation and XZ position reset (Y fixed at %.1fm)", position_y_);
 	}
 
 

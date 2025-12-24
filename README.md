@@ -1,5 +1,7 @@
 Just been copied from [OpenVR driver example](../thirdparties/openvr/samples/drivers/drivers/simplehmd/README.md)
 
+SDK: https://github.com/verncat/RayNeo-Air-3S-Pro-OpenVR
+
 ### Input and Bindings
 
 This driver exposes multiple HMD input components so you can bind RayNeo glasses buttons to SteamVR dashboard actions:

@@ -276,12 +276,26 @@ vr::DriverPose_t MyHMDControllerDeviceDriver::GetPose()
 	pose.qRotation.y = qy;
 	pose.qRotation.z = qz;
 
-	// Position (simple demo). If sleeping, keep fixed.
+	// Position - experimental 6DOF via accelerometer integration
+	// WARNING: This will drift! Use recenter (double-click brightness) to reset.
 	bool sleeping = false;
-	if (auto *prov = GetMyDeviceProviderInstance()) sleeping = prov->IsSleeping();
-	pose.vecPosition[0] = 0.0f;
-	pose.vecPosition[1] = sleeping ? 1.0f : 1.5f;
-	pose.vecPosition[2] = 0.0f;
+	if (auto *prov = GetMyDeviceProviderInstance()) {
+		sleeping = prov->IsSleeping();
+		if (!sleeping) {
+			// Get experimental position from accelerometer integration
+			prov->GetPosition(pose.vecPosition[0], pose.vecPosition[1], pose.vecPosition[2]);
+		} else {
+			// When sleeping, use fixed position
+			pose.vecPosition[0] = 0.0f;
+			pose.vecPosition[1] = 1.0f;
+			pose.vecPosition[2] = 0.0f;
+		}
+	} else {
+		// Fallback if provider not available
+		pose.vecPosition[0] = 0.0f;
+		pose.vecPosition[1] = 1.5f;
+		pose.vecPosition[2] = 0.0f;
+	}
 
 	// The pose we provide: when sleeping, mark invalid/out-of-range to hint standby.
 	pose.poseIsValid = !sleeping;

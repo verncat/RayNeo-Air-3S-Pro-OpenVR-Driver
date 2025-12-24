@@ -21,6 +21,14 @@ vr::EVRInitError MyDeviceProvider::Init( vr::IVRDriverContext *pDriverContext )
 	// We need to initialise our driver context to make calls to the server.
 	// OpenVR provides a macro to do this for us.
 	VR_INIT_SERVER_DRIVER_CONTEXT( pDriverContext );
+	
+	DriverLog("==========================================================");
+	DriverLog("EXPERIMENTAL 3DOF+XZ TRACKING ENABLED");
+	DriverLog("Using accelerometer for X/Z position, Y fixed at 1.5m");
+	DriverLog("WARNING: Horizontal drift expected! Use recenter often.");
+	DriverLog("Double-click brightness button to reset position/velocity");
+	DriverLog("==========================================================");
+	
 	InitRayneo();
 
 	// After switching to 3D mode, give Windows a brief window to expose
@@ -224,8 +232,8 @@ void MyDeviceProvider::RayneoEventLoop()
 						wz = s.gyroDps[2] * deg2rad;
 					}
 
-					if (dt > 0.f) {
-						// Apply sensitivity scaling
+					if (dt > 0.f && dt < 0.1f) { // Sanity check on dt
+						// Apply sensitivity scaling for gyro
 						wx *= gyro_scale_;
 						wy *= gyro_scale_;
 						wz *= gyro_scale_;
@@ -256,6 +264,55 @@ void MyDeviceProvider::RayneoEventLoop()
 							float nrm = std::sqrt(nw*nw + nx*nx + ny*ny + nz*nz);
 							if (nrm > 0.f) { nw /= nrm; nx /= nrm; ny /= nrm; nz /= nrm; }
 							imu_q_w_ = nw; imu_q_x_ = nx; imu_q_y_ = ny; imu_q_z_ = nz;
+						}
+
+						// EXPERIMENTAL 6DOF: Integrate accelerometer for position tracking
+						// WARNING: This will drift significantly over time!
+						// NOTE: Y-axis (vertical) disabled to prevent floor-level drift in VRChat
+						if (use_experimental_6dof_) {
+							// Get acceleration in g units, convert to m/s^2
+							float ax = s.acc[0] * 9.81f;
+							float ay = s.acc[1] * 9.81f;
+							float az = s.acc[2] * 9.81f;
+
+							// Rotate acceleration from sensor frame to world frame using current orientation
+							// a_world = q * a_sensor * q^-1
+							float qw = imu_q_w_, qx = imu_q_x_, qy = imu_q_y_, qz = imu_q_z_;
+							float ax_w = ax*(qw*qw + qx*qx - qy*qy - qz*qz) + 2.0f*ay*(qx*qy - qw*qz) + 2.0f*az*(qx*qz + qw*qy);
+							float ay_w = 2.0f*ax*(qx*qy + qw*qz) + ay*(qw*qw - qx*qx + qy*qy - qz*qz) + 2.0f*az*(qy*qz - qw*qx);
+							float az_w = 2.0f*ax*(qx*qz - qw*qy) + 2.0f*ay*(qy*qz + qw*qx) + az*(qw*qw - qx*qx - qy*qy + qz*qz);
+
+							// Remove gravity (assuming Y-up, gravity = -9.81 m/s^2)
+							ay_w += 9.81f;
+
+							// Apply high-pass filter to reduce drift (experimental)
+							const float alpha = 0.8f; // Filter coefficient
+							static float prev_ax = 0, prev_ay = 0, prev_az = 0;
+							ax_w = alpha * (ax_w - prev_ax);
+							ay_w = alpha * (ay_w - prev_ay);
+							az_w = alpha * (az_w - prev_az);
+							prev_ax = ax_w; prev_ay = ay_w; prev_az = az_w;
+
+							// Integrate acceleration to velocity (X and Z only, keep Y fixed)
+							velocity_x_ += ax_w * dt;
+							// velocity_y_ += ay_w * dt; // DISABLED: causes floor-level drift
+							velocity_z_ += az_w * dt;
+
+							// Apply velocity damping to reduce drift
+							const float damping = 0.95f;
+							velocity_x_ *= damping;
+							// velocity_y_ *= damping; // Y velocity always 0
+							velocity_z_ *= damping;
+
+							// Integrate velocity to position (X and Z only)
+							position_x_ += velocity_x_ * dt;
+							// position_y_ += velocity_y_ * dt; // DISABLED: Y stays at 1.5m (standing height)
+							position_z_ += velocity_z_ * dt;
+
+							// Clamp position to reasonable bounds
+							position_x_ = std::max(-5.0f, std::min(5.0f, position_x_));
+							// position_y_ clamping removed - it stays constant at 1.5m
+							position_z_ = std::max(-5.0f, std::min(5.0f, position_z_));
 						}
 					}
 				}
