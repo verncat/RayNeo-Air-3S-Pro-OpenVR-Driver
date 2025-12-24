@@ -1,0 +1,148 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Setup MSVC
+        uses: microsoft/setup-msbuild@v2
+      
+      - name: Configure CMake (Windows x64)
+        run: |
+          cmake -B build -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_BUILD_TYPE=Release
+      
+      - name: Build (Windows x64)
+        run: cmake --build build --config Release --target driver_rayneo
+      
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rayneo-win64
+          path: build/drivers/rayneo/
+          retention-days: 1
+
+  build-linux:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake libusb-1.0-0-dev
+      
+      - name: Configure CMake (Linux x64)
+        run: |
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release
+      
+      - name: Build (Linux x64)
+        run: cmake --build build --config Release --target driver_rayneo
+      
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rayneo-linux64
+          path: build/drivers/rayneo/
+          retention-days: 1
+
+  package-release:
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: rayneo-win64
+          path: package/rayneo/bin/win64
+      
+      - name: Download Linux build
+        uses: actions/download-artifact@v4
+        with:
+          name: rayneo-linux64
+          path: package/rayneo/bin/linux64
+      
+      - name: Copy driver resources
+        run: |
+          # Copy manifest and resources to package root
+          cp resources/driver.vrdrivermanifest package/rayneo/
+          mkdir -p package/rayneo/resources
+          cp -r resources/* package/rayneo/resources/
+      
+      - name: Generate build metadata
+        id: metadata
+        run: |
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          BUILD_DATE=$(date -u +"%Y%m%d-%H%M%S")
+          ARCHIVE_NAME="rayneo-air3s-pro-openvr_build-${COMMIT_HASH}-${BUILD_DATE}.zip"
+          
+          echo "commit_hash=${COMMIT_HASH}" >> $GITHUB_OUTPUT
+          echo "build_date=${BUILD_DATE}" >> $GITHUB_OUTPUT
+          echo "archive_name=${ARCHIVE_NAME}" >> $GITHUB_OUTPUT
+      
+      - name: Create driver ZIP
+        run: |
+          cd package
+          zip -r "../${{ steps.metadata.outputs.archive_name }}" rayneo/
+          cd ..
+          ls -lh "${{ steps.metadata.outputs.archive_name }}"
+      
+      - name: Create source tarball
+        run: |
+          tar --exclude='.git' \
+              --exclude='build' \
+              --exclude='package' \
+              -czf "rayneo-air3s-pro-openvr_source-${{ steps.metadata.outputs.commit_hash }}-${{ steps.metadata.outputs.build_date }}.tar.gz" \
+              .
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: build-${{ steps.metadata.outputs.commit_hash }}-${{ steps.metadata.outputs.build_date }}
+          name: "Build ${{ steps.metadata.outputs.commit_hash }} (${{ steps.metadata.outputs.build_date }})"
+          body: |
+            **Automated build from master branch**
+            
+            - Commit: ${{ github.sha }}
+            - Short hash: ${{ steps.metadata.outputs.commit_hash }}
+            - Build date: ${{ steps.metadata.outputs.build_date }}
+            
+            ### Installation
+            1. Extract `rayneo-air3s-pro-openvr_build-*.zip`
+            2. Copy the `rayneo` folder to your SteamVR drivers directory:
+               - **Windows**: `C:\Program Files (x86)\Steam\steamapps\common\SteamVR\drivers\`
+               - **Linux**: `~/.steam/steam/steamapps/common/SteamVR/drivers/`
+            3. Restart SteamVR
+            
+            ### Files
+            - **Driver package** (Win64 + Linux64): `rayneo-air3s-pro-openvr_build-*.zip`
+            - **Source code**: `rayneo-air3s-pro-openvr_source-*.tar.gz`
+          files: |
+            rayneo-air3s-pro-openvr_build-*.zip
+            rayneo-air3s-pro-openvr_source-*.tar.gz
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
