@@ -52,6 +52,14 @@ set_target_properties(driver_rayneo PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${DRIVER_BIN_DIR}"
 )
 
+# Set RPATH for Linux to find libRayNeoSDK.so in the same directory
+if(UNIX AND NOT APPLE)
+    set_target_properties(driver_rayneo PROPERTIES
+        BUILD_RPATH "$ORIGIN"
+        INSTALL_RPATH "$ORIGIN"
+    )
+endif()
+
 # Fix for Visual Studio appending /Debug, /Release to the output path
 if(CMAKE_CONFIGURATION_TYPES)
     foreach(config ${CMAKE_CONFIGURATION_TYPES})
@@ -123,6 +131,14 @@ set_target_properties(rayneo_prelauncher PROPERTIES
     CXX_STANDARD_REQUIRED ON
 )
 target_link_libraries(rayneo_prelauncher PRIVATE RayNeoSDK)
+
+# Set RPATH for Linux to find libRayNeoSDK.so in the same directory
+if(UNIX AND NOT APPLE)
+    set_target_properties(rayneo_prelauncher PROPERTIES
+        BUILD_RPATH "$ORIGIN"
+        INSTALL_RPATH "$ORIGIN"
+    )
+endif()
 
 add_custom_command(TARGET rayneo_prelauncher POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:RayNeoSDK> $<TARGET_FILE_DIR:rayneo_prelauncher>
