@@ -1,41 +1,40 @@
+#include <iostream>
+#include <chrono>
+#include <thread>
+#include <atomic>
+#include <string>
+
 #ifdef _WIN32
 #define NOMINMAX
 #include <windows.h>
 #include <shellapi.h>
-#include <string>
-#include <iostream>
-#include <chrono>
-#include <thread>
-#include <filesystem>
-#include <atomic>
+#else
+#include <cstdlib>
+#include <unistd.h>
+#endif
 
 // RayNeo SDK
 #include "rayneo_api.h"
 
-static std::wstring ReadRegString(HKEY root, const wchar_t* subkey, const wchar_t* value, REGSAM view)
-{
-    HKEY hKey = nullptr;
-    LONG rc = RegOpenKeyExW(root, subkey, 0, KEY_READ | view, &hKey);
-    if (rc != ERROR_SUCCESS) return L"";
-    wchar_t buf[1024]; DWORD type = 0; DWORD size = sizeof(buf);
-    rc = RegQueryValueExW(hKey, value, nullptr, &type, reinterpret_cast<LPBYTE>(buf), &size);
-    RegCloseKey(hKey);
-    if (rc != ERROR_SUCCESS || type != REG_SZ) return L"";
-    return std::wstring(buf);
-}
 
 static bool LaunchSteamVR()
 {
+#ifdef _WIN32
     HINSTANCE h = ShellExecuteW(nullptr, L"open", L"steam://rungameid/250820", nullptr, nullptr, SW_SHOWDEFAULT);
     return reinterpret_cast<INT_PTR>(h) > 32;
+#else
+    // Linux: try xdg-open or direct steam URL
+    int result = std::system("xdg-open 'steam://rungameid/250820' 2>/dev/null || steam 'steam://rungameid/250820' 2>/dev/null &");
+    return result == 0;
+#endif
 }
 
-int wmain()
+int main()
 {
     // 1) Connect to RayNeo and set 3D mode
     RAYNEO_Context ctx = nullptr;
     if (Rayneo_Create(&ctx) != RAYNEO_OK || !ctx) {
-        std::wcerr << L"Rayneo_Create failed" << std::endl;
+        std::cerr << "Rayneo_Create failed" << std::endl;
         return 1;
     }
     const uint16_t kVid = 0x1BBB;
@@ -44,7 +43,7 @@ int wmain()
     
 
     if (Rayneo_Start(ctx, 0) != RAYNEO_OK) {
-        std::wcerr << L"Rayneo_Start failed (device not found)" << std::endl;
+        std::cerr << "Rayneo_Start failed (device not found)" << std::endl;
         Rayneo_Destroy(ctx);
         return 2;
     }
@@ -52,7 +51,7 @@ int wmain()
 
     RAYNEO_Result r3d = Rayneo_DisplaySet3D(ctx);
     if (r3d != RAYNEO_OK) {
-        std::wcerr << L"Rayneo_DisplaySet3D failed: " << (int)r3d << std::endl;
+        std::cerr << "Rayneo_DisplaySet3D failed: " << (int)r3d << std::endl;
     }
 
     std::cout << "RayNeo set to 3D mode" << std::endl;
@@ -103,11 +102,8 @@ int wmain()
     std::cout << "Launching SteamVR..." << std::endl;
     // 2) Launch SteamVR
     if (!LaunchSteamVR()) {
-        std::wcerr << L"Failed to launch SteamVR" << std::endl;
+        std::cerr << "Failed to launch SteamVR" << std::endl;
         return 3;
     }
     return 0;
 }
-#else
-int main() { return 0; }
-#endif
